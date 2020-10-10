@@ -1,0 +1,183 @@
+---
+title: "Simulation of Half-sib data (Mixed effects Model)"
+output: html_notebook
+---
+
+This document will take you through the scripts required to simulate a simple half-sib data set commonly encountered in the animal breeding scenario. This certainly is not the most efficient way of doing it. But the codes will suffice to generate a simple data set.
+
+The assumed experimental setup is an aquaculture genetic breeding scenario where 100 (40 males and 60 females) fish were produced from 5 sires and 10 dams. The design is non-orthogonal or unbalanced with varying numbers of fish grown in 4 different earthen ponds.The pond and sex were allocated randomly to the family.
+
+The sire and dam are assumed to be random effects, where as pond and sex are fixed effects. Hence the simulation was carried out under the assumption of *Linear Mixed Effects Model*.
+```{r}
+#Define variables
+nsire = 5       #Number of sires
+ndam = 10       #Number of dams
+npond = 4       #Number of pond
+nmale = 40      #Number of males
+nfemale = 60    #Number of females
+nanimal = 100   #Total Number of animals in the data
+sdsire = 8      #variation (in standard deviations) due to sires 
+sddam = 6       #Variation (in standard deviations)due to dams
+sderr = 10      #Random residual variation (in standard deviations)
+mu = 50         #Overall mean/Intercept
+```
+
+
+```{r}
+set.seed(100)    #Set the seed to output the same results every time
+```
+
+
+There are 2 dams per sire making the total number of dams to 10. We will set an unequal size of offspring per dam (to emulate the real case scenario) ranging from 5 to 15 per dam, making the total number of offspring to 100. The following code snippet will serve the purpose.\
+*Caveat: This might not work efficiently in every scenario. Select the range cautiously to avoid an infinite loop!!*
+
+```{r}
+x1 <-NULL
+repeat {
+  dlevel = sample(5:15,10)
+  x1=sum(dlevel)
+  
+  if(x1==100) {  
+    break
+    
+  } else {
+    x1 <- NULL
+  } 
+}
+print(dlevel)
+```
+
+
+Now, before assigning the numbers for offspring per sire, lets assign 2 dams per sire. The previous output vector is the number of offspring per dam. So if first two dams are assigned to first sire, then the family size of first sire would be 13 + 8 = 21, assigning 3rd and 4th dam to 2nd sire would result in a family size of 11 + 5 = 16 and so on. This way we will assign the family size to our 5 sires. This is exactly what the following snippet would do for us.
+
+```{r}
+a = 1
+b = 2
+slevel <- NULL
+for (i in 1:5)
+{
+  level = sum(dlevel[a:b])
+  a = a + 2
+  b = b + 2
+  slevel = c(slevel,level)
+}
+print(slevel)
+```
+
+Lets create the column vectors to represent incidence of Sire, Dam, Pond and Sex. Here the number of offspring allocated per pond and number of males and females are arbitrary (with unequal size).
+
+```{r}
+Sire = rep(1:nsire,slevel)  #Repeat integers from 1 to 5 each @ sire family size
+Dam = rep(1:ndam,dlevel)    #Repeat integers from 1 to 10 each @ dam family size
+Pond=rep(1:4,c(30,20,22,28))#Repeat integers from 1 to 4 @ offspring per pond
+Sex=rep(1:2,c(60,40))       #Repeat 1 for 60 times and 2 for 40 times
+```
+
+
+Check the incidence of sire family size. Make sure the incidence of each integer match with the number of offspring per family
+```{r}
+print(Sire)
+```
+
+Check the incidence of dam family size. Make sure the incidence of each integer match with the number of offspring per family
+```{r}
+print(Dam)
+```
+
+
+Simulate random sire effects for each sire from the predefined distribution. At the beginning we defined the variation due to sire effects in standard deviations. After picking 5 values from a distribution of mean zero and variance as defined, repeat each value @ number of offspring per sire\
+*Note that the rnorm() assumes the attribute to be sd and not variance*
+
+```{r}
+sireeff = rnorm(nsire, 0, sdsire) # Sample 5 values from the N-distribution
+slevel=as.numeric(slevel)         #This is just to avoid error in next code
+sireeff = rep(sireeff, slevel)    #Repeat effects @ family size of sire
+print(sireeff)
+```
+
+Simulate random dam effects for each dam from the predefined distribution. After sampling 10 values from the normal distribution with mean zero and variance as defined previously, repeat each value @ number of offspring per dam
+
+```{r}
+dameff = rnorm(ndam, 0, sddam)  #Sample 10 values from the distribution
+dlevel=as.numeric(dlevel)       
+dameff = rep(dameff, dlevel)    #Repeat effects times the family size
+print(dameff)
+```
+
+
+Simulate random residual effects for each offspring
+```{r}
+erreff=rnorm(nanimal,0,sderr)
+print(erreff)
+```
+
+Define the arbitrary effects for the fixed levels of pond and sex. Assume (arbitrarily) on an average, various ponds have effects of 5,-6,3 and -2 units respectively on the response variables. Also, assume females, on an average, have an overall effect of -5 units on the response variable and being a male have an overall effect of +5 units. Once the effects for fixed variables are defined allow them to repeat @ respective incidence.
+```{r}
+pondeff=c(5,-6,3,-2)
+Pond=as.numeric(Pond)
+pondeff=rep(pondeff,c(30,20,25,25))
+sexeff=c(5,-5)
+sexeff=rep(sexeff,c(60,40))
+
+```
+
+
+
+Create a data frame containing random effects and their labels
+```{r}
+ran <- data.frame(Sire,Dam,sireeff,dameff,erreff)
+print(ran)
+
+```
+
+Create a data frame with the fixed effect part and its labels. Then the data frame should be shuffled randomly before combining it with the "ran" data frame. The overall effect is such that the families were assigned randomly to the ponds and the sex assigned to each offspring was random
+```{r}
+fixed=data.frame(Pond,Sex,pondeff,sexeff) 
+z <- sample(100)  #Sample numbers from 1 to 100 at random
+fixed <- fixed[z,]      #Shuffle the "fixed" data frame
+print(fixed)
+```
+
+
+Now, combine data frames "ran" and "fixed" to create half-sib (HfS) data frame. Then create the response variable Body Weight (BW), by summing up all the effects and push it into the HfS data frame. Finally, retain only the necessary columns in the final HfS data frame.
+```{r}
+HfS <-data.frame(ran,fixed)
+HfS$BW=with(HfS, mu+sireeff+dameff+erreff+pondeff+sexeff)
+HfS<-HfS[,c(1,2,6,7,10)]
+print(HfS)
+```
+
+
+Now having the data simulated, lets do some statistical analysis. Use lmer() from the lme4 package to estimate the variance components.Once the variance components are estimated we can estimate the heritability (h2) of the trait. Make sure that the Sire,Dam,Pond and Sex are defined as factors before subjecting the HfS data frame to lmer().
+```{r}
+#Load the required library
+library(lme4)
+
+#Define all the factors
+HfS$Sire<-as.factor(HfS$Sire)
+HfS$Dam<-as.factor(HfS$Dam)
+HfS$Pond<-as.factor(HfS$Pond)
+HfS$Sex<-as.factor(HfS$Sex)
+
+#Fit the model
+model <-lmer(BW ~ 1 + Pond + Sex + (1|Sire) + (1|Dam:Sire), data = HfS)
+summary(model)
+```
+
+Estimate Heritability due to Sire, Dam and Combined
+```{r}
+h2s = (4*12.939)/(8.301+12.939+93.223)
+print(h2s)
+```
+```{r}
+h2d = (2*8.301)/(8.301+12.939+93.223)
+print(h2d)
+```
+```{r}
+h2c = (2*(8.301+12.939))/(8.301+12.939+93.223)
+print(h2c)
+```
+Checkout for more basics about the data simulation for [Linear Models](https://aosmith.rbind.io/2018/01/09/simulate-simulate-part1/) and [Linear Mixed Effects Models](https://aosmith.rbind.io/2018/04/23/simulate-simulate-part-2/)
+
+Have fun !!
+
