@@ -1,8 +1,10 @@
 ---
-title: "Simulation of Half-sib data (Mixed effects Model)"
+title: "Mixed effects Model: Simulation of Half-sib data in R"
+author: "Rameez Roshan"
+date: 10-10-2020
 output: html_notebook
 ---
-
+<br>
 This document will take you through the scripts required to simulate a simple half-sib data set commonly encountered in the animal breeding scenario. This certainly is not the most efficient way of doing it. But the codes will suffice to generate a simple data set.
 
 The assumed experimental setup is an aquaculture genetic breeding scenario where 100 (40 males and 60 females) fish were produced from 5 sires and 10 dams. The design is non-orthogonal or unbalanced with varying numbers of fish grown in 4 different earthen ponds.The pond and sex were allocated randomly to the family.
